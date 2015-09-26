@@ -50,12 +50,15 @@ class ChimeraTel (ChimeraCLI):
                            required=True,
                            help="Telescope instrument to be used. If blank, try to guess from chimera.config",
                            helpGroup="TELESCOPE")
-
         self.addHelpGroup("COORDS", "Coordinates")
         self.addParameters(dict(name="ra",
                                 type="string",
                                 helpGroup="COORDS",
                                 help="Right Ascension."),
+                           dict(name="ha",
+                                type="string",
+                                helpGroup="COORDS",
+                                help="Hour Angle."),
                            dict(
                                name="dec",
                                type="string",
@@ -104,7 +107,7 @@ class ChimeraTel (ChimeraCLI):
     def init(self, options):
         pass
 
-    @action(help="Slew to given --ra --dec or --az --alt or --object",
+    @action(help="Slew to given --ra --dec or --ha --dec or --az --alt or --object",
             helpGroup="SLEW")
     def slew(self, options):
 
@@ -322,6 +325,8 @@ class ChimeraTel (ChimeraCLI):
 
         target = None
 
+        # kkk need to add some logic to avoid, for instance, --ha and --ra
+        # being given simultaneously
         if (options.ra is not None or options.dec is not None) and \
                 (options.az is not None or options.alt is not None):
             self.exit(
@@ -334,6 +339,18 @@ class ChimeraTel (ChimeraCLI):
             except Exception, e:
                 self.exit(str(e))
 
+        # kkk
+        elif (options.ha is not None) and (options.dec is not None):
+            site = self._remoteManager.getProxy("/Site/0")
+            try:
+                print site.LST(), options.ha
+                options.ra = site.LST() + options.ha
+                target = Position.fromRaDec(
+                    options.ra, options.dec, epoch=options.epoch)
+
+            except Exception, e:
+                self.exit(str(e))
+
         elif (options.az is not None) and (options.alt is not None):
             try:
                 target = Position.fromAltAz(options.alt, options.az)
@@ -343,7 +360,7 @@ class ChimeraTel (ChimeraCLI):
 
         else:
             self.exit(
-                "Invalid coordinates, try --ra --dec or --alt --az or --object.")
+                "Invalid coordinates, try --ra --dec or --ha --dec or --alt --az or --object.")
 
         return target
 
